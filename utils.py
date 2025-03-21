@@ -1,10 +1,15 @@
 import requests
 from bs4 import BeautifulSoup
 from newspaper import Article
+from googlesearch import search
+
+import requests
+
+API_KEY = "ca82e35d47644a6dbac88524f0e2ce85"  # Replace this with your actual key
 
 def get_news_articles(company, num_articles=5):
     """
-    Extracts news articles related to the given company.
+    Fetches news articles related to the given company from NewsAPI.
 
     Args:
         company (str): The name of the company to search for.
@@ -13,42 +18,27 @@ def get_news_articles(company, num_articles=5):
     Returns:
         list: A list of dictionaries containing title, summary, and URL.
     """
-    search_url = f"https://www.google.com/search?q={company}+news&tbm=nws"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    }
+    url = f"https://newsapi.org/v2/everything?q={company}&apiKey={API_KEY}&pageSize={num_articles}"
 
-    response = requests.get(search_url, headers=headers)
-    if response.status_code != 200:
-        return []
+    response = requests.get(url)
+    data = response.json()
 
-    soup = BeautifulSoup(response.text, "html.parser")
-    articles = soup.find_all("a", href=True, limit=num_articles)
+    if "articles" not in data or not data["articles"]:
+        return []  # No articles found
 
     news_list = []
-    for article in articles:
-        link = article["href"]
-        if not link.startswith("http"):  # Skip invalid links
-            continue
-
-        try:
-            news_article = Article(link)
-            news_article.download()
-            news_article.parse()
-            news_article.nlp()  # Generate summary
-
-            news_list.append({
-                "title": news_article.title,
-                "summary": news_article.summary,
-                "url": link
-            })
-        except:
-            continue  # Skip articles that fail to process
+    for article in data["articles"]:
+        news_list.append({
+            "title": article["title"],
+            "summary": article["description"] or "No summary available.",
+            "url": article["url"]
+        })
 
     return news_list
 
 
-##Sentiment Analysis
+
+## Sentiment Analysis
 from transformers import pipeline
 
 # Load a sentiment analysis model from Hugging Face
@@ -68,7 +58,7 @@ def analyze_sentiment(text):
     return result[0]["label"]
 
 
-##comparitive analysis
+## Comparative Analysis
 from collections import Counter
 
 def comparative_analysis(articles):
@@ -81,7 +71,7 @@ def comparative_analysis(articles):
     Returns:
         dict: Summary of sentiment distribution.
     """
-    sentiments = [article["sentiment"] for article in articles]
+    sentiments = [article.get("sentiment", "Neutral") for article in articles]
     sentiment_counts = Counter(sentiments)
 
     return {
@@ -90,7 +80,8 @@ def comparative_analysis(articles):
         "Neutral": sentiment_counts.get("NEUTRAL", 0),
     }
 
-##TTS Implementation
+
+## TTS Implementation
 from gtts import gTTS
 
 def text_to_speech_hindi(text, output_file="output.mp3"):
@@ -104,6 +95,9 @@ def text_to_speech_hindi(text, output_file="output.mp3"):
     Returns:
         str: Path to the saved audio file.
     """
+    if not text.strip():
+        return None  # Prevent errors due to empty text
+    
     tts = gTTS(text=text, lang="hi")
     tts.save(output_file)
     return output_file
