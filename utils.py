@@ -82,22 +82,39 @@ def comparative_analysis(articles):
 
 
 ## TTS Implementation
+# from gtts import gTTS
+
+# def text_to_speech_hindi(text, output_file="output.mp3"):
+#     """
+#     Converts text into Hindi speech.
+
+#     Args:
+#         text (str): Text to be converted to speech.
+#         output_file (str): Output file name.
+
+#     Returns:
+#         str: Path to the saved audio file.
+#     """
+#     if not text.strip():
+#         return None  # Prevent errors due to empty text
+    
+#     tts = gTTS(text=text, lang="hi")
+#     tts.save(output_file)
+#     return output_file
+
+from googletrans import Translator
 from gtts import gTTS
 
 def text_to_speech_hindi(text, output_file="output.mp3"):
-    """
-    Converts text into Hindi speech.
-
-    Args:
-        text (str): Text to be converted to speech.
-        output_file (str): Output file name.
-
-    Returns:
-        str: Path to the saved audio file.
-    """
-    if not text.strip():
-        return None  # Prevent errors due to empty text
+    translator = Translator()
+    translated_text = translator.translate(text, dest="hi").text  # Translate to Hindi
+    print("Translated Text:", translated_text)  # Debugging step
     
-    tts = gTTS(text=text, lang="hi")
+    tts = gTTS(text=translated_text, lang="hi")
     tts.save(output_file)
     return output_file
+
+
+
+
+
