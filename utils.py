@@ -2,7 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 from newspaper import Article
 
-def get_news_articles(company, num_articles=10):
+def get_news_articles(company, num_articles=5):
     """
     Extracts news articles related to the given company.
 
@@ -13,32 +13,40 @@ def get_news_articles(company, num_articles=10):
     Returns:
         list: A list of dictionaries containing title, summary, and URL.
     """
-    search_url = f"https://news.google.com/search?q={company}&hl=en"
-    headers = {"User-Agent": "Mozilla/5.0"}  # Required to avoid blocking by Google
-    
+    search_url = f"https://www.google.com/search?q={company}+news&tbm=nws"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+
     response = requests.get(search_url, headers=headers)
-    
     if response.status_code != 200:
         return []
 
     soup = BeautifulSoup(response.text, "html.parser")
-    articles = soup.find_all("a", {"class": "DY5T1d"}, limit=num_articles)
-    
+    articles = soup.find_all("a", href=True, limit=num_articles)
+
     news_list = []
     for article in articles:
-        link = "https://news.google.com" + article['href'][1:]  # Fix relative links
-        news_article = Article(link)
-        news_article.download()
-        news_article.parse()
-        news_article.nlp()  # Generate a summary
+        link = article["href"]
+        if not link.startswith("http"):  # Skip invalid links
+            continue
 
-        news_list.append({
-            "title": news_article.title,
-            "summary": news_article.summary,
-            "url": link
-        })
-    
+        try:
+            news_article = Article(link)
+            news_article.download()
+            news_article.parse()
+            news_article.nlp()  # Generate summary
+
+            news_list.append({
+                "title": news_article.title,
+                "summary": news_article.summary,
+                "url": link
+            })
+        except:
+            continue  # Skip articles that fail to process
+
     return news_list
+
 
 ##Sentiment Analysis
 from transformers import pipeline
