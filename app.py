@@ -6,7 +6,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import threading
-from gtts import gTTS
 import psutil
 
 # 🔹 Kill any existing process on port 8000
@@ -39,7 +38,7 @@ def home():
 
 @app.get("/news/")
 def fetch_news(company: str):
-    """Fetch mock news and generate speech."""
+    """Fetch mock news and analyze sentiment."""
     if not company.strip():
         return {"error": "⚠ Please enter a valid company name."}
     
@@ -48,16 +47,9 @@ def fetch_news(company: str):
         {"headline": f"{company} stock surges!", "sentiment": "Neutral"},
     ]
     
-    # Convert headlines to speech
-    headlines_text = ". ".join([item["headline"] for item in news])
-    tts = gTTS(text=headlines_text, lang="en")
-    audio_path = os.path.abspath("output.mp3")  # 🔹 Use full file path
-    tts.save(audio_path)
-
     return {
         "company": company,
-        "news": news,
-        "audio": audio_path  # 🔹 Ensure full file path is sent
+        "news": news
     }
 
 # 🔹 Function to start FastAPI in a separate thread
@@ -66,34 +58,29 @@ def start_fastapi():
 
 # 🔹 Function to call FastAPI from Gradio UI
 def gradio_fetch_news(company):
-    """Calls FastAPI to fetch news and generates TTS output."""
+    """Calls FastAPI to fetch news (No Audio)."""
     url = f"http://127.0.0.1:8000/news/?company={company}"
     try:
         response = requests.get(url)
         if response.status_code == 200:
             data = response.json()
             if "error" in data:
-                return data["error"], None  # Handle errors
+                return data  # Handle errors
             
-            # 🔹 Ensure 'audio' key exists and return proper path
-            audio_file = data.get("audio", None)
-            if audio_file and os.path.exists(audio_file):
-                return data, audio_file
-            else:
-                return data, None  # Return news without audio if missing
+            return data  # ✅ Return only news & sentiment (NO AUDIO)
             
-        return {"error": "⚠ No news found or an error occurred."}, None
+        return {"error": "⚠ No news found or an error occurred."}
     except requests.exceptions.ConnectionError:
-        return {"error": "⚠ API server is not responding."}, None
+        return {"error": "⚠ API server is not responding."}
 
 # 🔹 Start FastAPI in a background thread
 threading.Thread(target=start_fastapi, daemon=True).start()
 
-# 🔹 Gradio UI with Audio Output
+# 🔹 Gradio UI without Audio Output
 interface = gr.Interface(
     fn=gradio_fetch_news,
     inputs=gr.Textbox(label="🔹 Enter Company Name"),
-    outputs=[gr.JSON(label="📢 News & Sentiment Analysis"), gr.Audio(label="🔊 Listen to News")],
+    outputs=gr.JSON(label="📢 News & Sentiment Analysis"),  
     title="📰 News Sentiment Analysis App",
     description="Enter a company name to fetch recent news and analyze sentiment.",
     live=True
