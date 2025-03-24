@@ -1,86 +1,49 @@
-import os
-import time
 import requests
+import time
+import subprocess
 import gradio as gr
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-import uvicorn
-import threading
-import psutil
 
-# 🔹 Kill any existing process on port 8000
-def kill_existing_processes(port=8000):
-    for proc in psutil.process_iter(attrs=["pid", "connections"]):
-        try:
-            for conn in proc.info["connections"]:
-                if conn.laddr.port == port:
-                    print(f"Killing process {proc.info['pid']} using port {port}")
-                    proc.kill()
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
-            pass
+def start_api_server():
+    """Starts the FastAPI server using uvicorn."""
+    print("\nStarting the API server...\n")
+    subprocess.Popen(["uvicorn", "api:app", "--reload"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    time.sleep(3)  # Give time for the server to start
 
-kill_existing_processes(8000)  # Clean port before running FastAPI
-
-app = FastAPI()
-
-# 🔹 Allow CORS for Gradio UI
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-@app.get("/")
-def home():
-    return {"message": "✅ API is running!"}
-
-@app.get("/news/")
-def fetch_news(company: str):
-    """Fetch mock news and analyze sentiment."""
-    if not company.strip():
-        return {"error": "⚠ Please enter a valid company name."}
-    
-    news = [
-        {"headline": f"Breaking news about {company}!", "sentiment": "Positive"},
-        {"headline": f"{company} stock surges!", "sentiment": "Neutral"},
-    ]
-    
-    return {
-        "company": company,
-        "news": news
-    }
-
-# 🔹 Function to start FastAPI in a separate thread
-def start_fastapi():
-    uvicorn.run(app, host="127.0.0.1", port=8000, log_level="info")
-
-# 🔹 Function to call FastAPI from Gradio UI
-def gradio_fetch_news(company):
-    """Calls FastAPI to fetch news (No Audio)."""
-    url = f"http://127.0.0.1:8000/news/?company={company}"
+def is_api_running():
+    """Checks if the API is running."""
     try:
-        response = requests.get(url)
-        if response.status_code == 200:
-            data = response.json()
-            if "error" in data:
-                return data  # Handle errors
-            
-            return data  # ✅ Return only news & sentiment (NO AUDIO)
-            
-        return {"error": "⚠ No news found or an error occurred."}
+        response = requests.get("http://127.0.0.1:8000/")
+        return response.status_code == 200
     except requests.exceptions.ConnectionError:
-        return {"error": "⚠ API server is not responding."}
+        return False
 
-# 🔹 Start FastAPI in a background thread
-threading.Thread(target=start_fastapi, daemon=True).start()
+def fetch_news(company):
+    """Fetches news for the given company."""
+    if not company.strip():
+        return "⚠ Please enter a valid company name."
+    
+    url = f"http://127.0.0.1:8000/news/?company={company}"
 
-# 🔹 Gradio UI without Audio Output
+    if not is_api_running():
+        start_api_server()
+
+    # Wait for API to be accessible
+    for _ in range(5):
+        if is_api_running():
+            print(f"\nFetching news for: {company}...\n")
+            response = requests.get(url)
+            if response.status_code == 200:
+                return response.json()  # Return the API response as JSON
+            return "⚠ No news found or an error occurred."
+        time.sleep(2)
+
+    return "⚠ API server is not responding. Please check if `uvicorn` is installed."
+
+# Gradio UI
 interface = gr.Interface(
-    fn=gradio_fetch_news,
+    fn=fetch_news,
     inputs=gr.Textbox(label="🔹 Enter Company Name"),
-    outputs=gr.JSON(label="📢 News & Sentiment Analysis"),  
+    outputs=gr.JSON(label="📢 News & Sentiment Analysis"),
     title="📰 News Sentiment Analysis App",
     description="Enter a company name to fetch recent news and analyze sentiment.",
     live=True

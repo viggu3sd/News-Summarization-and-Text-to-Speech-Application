@@ -113,8 +113,3 @@ def text_to_speech_hindi(text, output_file="output.mp3"):
     tts = gTTS(text=translated_text, lang="hi")
     tts.save(output_file)
     return output_file
-
-
-
-
-
