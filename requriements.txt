@@ -1,1 +1,8 @@
-
+fastapi
+gradio
+uvicorn
+requests
+transformers
+googletrans==4.0.0-rc1
+gtts
+newspaper3k
