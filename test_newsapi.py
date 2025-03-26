@@ -1,5 +1,5 @@
 import requests
-
+##get the API_KEY form NEWsAPI
 API_KEY = "ca82e35d47644a6dbac88524f0e2ce85"
 company = "Tesla"
 
